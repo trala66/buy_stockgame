@@ -1,0 +1,22 @@
+<!-- overview.html -->
+{% extends "base.html" %}
+{% block title %}Oversigt{% endblock %}
+{% block content %}
+<h2>Oversigt over alle brugere</h2>
+<table class="table table-bordered">
+  <thead>
+    <tr><th>ID</th><th>Navn</th><th>Kontanter</th><th>Aktier</th><th>Samlet værdi</th></tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.user_id }}</td>
+        <td>{{ u.name }}</td>
+        <td>{{ "%.2f"|format(u.cash_balance or 0) }} kr</td>
+        <td>{{ "%.2f"|format(u.stocks_value or 0) }} kr</td>
+        <td><strong>{{ "%.2f"|format(u.total or 0) }} kr</strong></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

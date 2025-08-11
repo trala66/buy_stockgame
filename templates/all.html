@@ -1,0 +1,141 @@
+<!-- base.html -->
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Investeringsspil{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light text-dark">
+<nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">Investeringsspil</a>
+    <div>
+      <a class="btn btn-outline-light me-2" href="/dashboard">Dashboard</a>
+      <a class="btn btn-outline-light me-2" href="/buy">Køb aktier</a>
+      <a class="btn btn-outline-light me-2" href="/overview">Oversigt</a>
+      <a class="btn btn-outline-light" href="/manual_update">Opdater kurser</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-info">
+          {% for message in messages %}{{ message }}<br>{% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>
+
+<!-- login.html -->
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<h2>Login</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label for="userid" class="form-label">Bruger ID</label>
+    <input type="text" name="userid" class="form-control" required>
+  </div>
+  <div class="mb-3">
+    <label for="pin" class="form-label">PIN-kode</label>
+    <input type="password" name="pin" class="form-control" required>
+  </div>
+  <button type="submit" class="btn btn-success">Login</button>
+</form>
+<p class="mt-3">Ingen bruger? <a href="/register">Opret dig her</a></p>
+{% endblock %}
+
+<!-- dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Din portefølje{% endblock %}
+{% block content %}
+<h2>Hej {{ user[0] }}!</h2>
+<p><strong>Kontantbeholdning:</strong> {{ user[1] }} kr</p>
+<h4>Aktiebeholdning:</h4>
+<table class="table table-striped">
+  <thead>
+    <tr><th>Aktie</th><th>Antal</th><th>Købskurs</th><th>Aktuel kurs</th><th>Værdi</th></tr>
+  </thead>
+  <tbody>
+    {% for aktie in holdings %}
+      <tr>
+        <td>{{ aktie[0] }}</td>
+        <td>{{ aktie[1] }}</td>
+        <td>{{ aktie[3] }} kr</td>
+        <td>{{ aktie[2] }} kr</td>
+        <td>{{ aktie[1] * aktie[2] | round(2) }} kr</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+<!-- buy.html -->
+{% extends "base.html" %}
+{% block title %}Køb aktier{% endblock %}
+{% block content %}
+<h2>Køb aktier</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label for="stock_id" class="form-label">Vælg aktie</label>
+    <select name="stock_id" class="form-select">
+      {% for stock in stocks %}
+        <option value="{{ stock[0] }}">{{ stock[1] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label for="quantity" class="form-label">Antal</label>
+    <input type="number" name="quantity" class="form-control" min="1" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Køb</button>
+</form>
+{% endblock %}
+
+<!-- overview.html -->
+{% extends "base.html" %}
+{% block title %}Oversigt{% endblock %}
+{% block content %}
+<h2>Oversigt over alle brugere</h2>
+<table class="table table-bordered">
+  <thead>
+    <tr><th>ID</th><th>Navn</th><th>Kontanter</th><th>Aktier</th><th>Samlet værdi</th></tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+      <tr>
+        <td>{{ user[0] }}</td>
+        <td>{{ user[1] }}</td>
+        <td>{{ user[2] }} kr</td>
+        <td>{{ user[3] }} kr</td>
+        <td><strong>{{ user[4] }} kr</strong></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+<!-- register.html -->
+{% extends "base.html" %}
+{% block title %}Opret bruger{% endblock %}
+{% block content %}
+<h2>Opret ny bruger</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label for="name" class="form-label">Navn</label>
+    <input type="text" name="name" maxlength="30" class="form-control" required>
+  </div>
+  <div class="mb-3">
+    <label for="pin" class="form-label">Vælg 4-cifret PIN</label>
+    <input type="password" name="pin" class="form-control" maxlength="4" pattern="\d{4}" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Opret bruger</button>
+</form>
+{% endblock %}

@@ -1,0 +1,17 @@
+<!-- register.html -->
+{% extends "base.html" %}
+{% block title %}Opret bruger{% endblock %}
+{% block content %}
+<h2>Opret ny bruger</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label for="name" class="form-label">Navn</label>
+    <input type="text" name="name" maxlength="30" class="form-control" required>
+  </div>
+  <div class="mb-3">
+    <label for="pin" class="form-label">Vælg 4-cifret PIN</label>
+    <input type="password" name="pin" class="form-control" maxlength="4" pattern="\d{4}" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Opret bruger</button>
+</form>
+{% endblock %}

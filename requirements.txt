@@ -1,0 +1,4 @@
+Flask==2.3.3
+psycopg2-binary==2.9.9
+yfinance==0.2.40
+gunicorn==21.2.0

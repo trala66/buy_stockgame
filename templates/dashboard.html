@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Din portefølje{% endblock %}
+{% block content %}
+<h2>Hej {{ user.name }}!</h2>
+<p><strong>Kontantbeholdning:</strong> {{ "%.2f"|format(user.cash_balance) }} kr</p>
+
+<h4>Aktiebeholdning:</h4>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Aktie</th><th>Antal</th><th>Købskurs</th><th>Aktuel kurs</th><th>Værdi</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for aktie in holdings %}
+      <tr>
+        <td>{{ aktie.name }}</td>
+        <td>{{ aktie.quantity }}</td>
+        <td>{{ "%.2f"|format(aktie.purchase_price or 0) }} kr</td>
+        <td>{{ "%.2f"|format(aktie.current_price or 0) }} kr</td>
+        <td>{{ "%.2f"|format((aktie.quantity or 0) * (aktie.current_price or 0)) }} kr</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5">Ingen beholdninger endnu</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
