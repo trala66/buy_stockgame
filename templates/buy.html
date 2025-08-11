@@ -4,16 +4,17 @@
 {% block content %}
 <h2>Køb aktier</h2>
 
-<p class="mb-3"><strong>Kontantsaldo:</strong> {{ "%.2f"|format(cash_balance) }} kr</p>
+<p class="mb-3"><strong>Kontantsaldo:</strong> {{ "%.2f"|format(cash_balance or 0) }} kr</p>
 
 <form method="POST">
   <div class="mb-3">
     <label for="stock_id" class="form-label">Vælg aktie</label>
-    <select name="stock_id" id="stock_id" class="form-select">
+    <select name="stock_id" id="stock_id" class="form-select" required>
       {% for stock in stocks %}
         <option value="{{ stock.stock_id }}"
-                {% if selected_stock_id is defined and selected_stock_id == stock.stock_id %}selected{% endif %}>
-          {{ stock.name }} ({{ stock.ticker }}) – {{ "%.2f"|format(stock.current_price or 0) }} kr
+          {% if selected_stock_id is defined and selected_stock_id == stock.stock_id %}selected{% endif %}>
+          {{ stock.name }} ({{ stock.ticker }})
+          {% if stock.current_price is not none %} – {{ "%.2f"|format(stock.current_price) }} kr{% endif %}
         </option>
       {% endfor %}
     </select>
@@ -26,7 +27,7 @@
   </div>
 
   {% if selected_price is defined and selected_price %}
-    <p>Senest hentede kurs: {{ "%.2f"|format(selected_price) }} kr</p>
+    <div class="mb-3 text-muted">Senest hentede kurs: {{ "%.2f"|format(selected_price) }} kr</div>
   {% endif %}
 
   <button type="submit" class="btn btn-primary">Køb</button>
