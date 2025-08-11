@@ -215,17 +215,19 @@ def buy():
         stocks = cur.fetchall()
         cur.execute("SELECT cash_balance FROM users WHERE user_id = %s", (uid,))
         balance_row = cur.fetchone()
-        cash_balance = Decimal(str(balance_row["cash_balance"])) if balance_row else Decimal("0")
+        cash_balance = Decimal(str(balance_row["cash_balance"])) if (balance_row and balance_row["cash_balance"] is not None) else Decimal("0")
 
     if request.method == "POST":
-        selected_stock_id = request.form.get("stock_id")
+        selected_stock_id_raw = request.form.get("stock_id")
         quantity_raw = request.form.get("quantity", "0").strip()
 
         err = None
         try:
-            selected_stock_id = int(selected_stock_id)
+            selected_stock_id = int(selected_stock_id_raw)
         except (TypeError, ValueError):
             err = "Vælg venligst en aktie."
+            selected_stock_id = None
+
         try:
             quantity = int(quantity_raw)
         except (TypeError, ValueError):
@@ -235,7 +237,7 @@ def buy():
         if not err and quantity <= 0:
             err = "Antal skal være større end nul."
 
-        price = ensure_stock_price(selected_stock_id) if not err else None
+        price = ensure_stock_price(selected_stock_id) if (not err and selected_stock_id) else None
         if not err and price is None:
             err = "Kunne ikke hente aktuel kurs. Prøv igen om lidt."
 
@@ -253,11 +255,10 @@ def buy():
                 "buy.html",
                 stocks=stocks,
                 cash_balance=cash_balance,
-                selected_stock_id=selected_stock_id if isinstance(selected_stock_id, int) else None,
+                selected_stock_id=selected_stock_id,
                 selected_price=float(price) if price is not None else None,
                 selected_quantity=quantity,
             )
-
         with get_db_connection() as conn, conn.cursor() as cur:
             cur.execute("SELECT cash_balance FROM users WHERE user_id = %s FOR UPDATE", (uid,))
             row = cur.fetchone()
@@ -297,6 +298,8 @@ def buy():
         return redirect(url_for("dashboard"))
 
     return render_template("buy.html", stocks=stocks, cash_balance=cash_balance)
+
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Leaderboard/overview
