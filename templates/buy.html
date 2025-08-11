@@ -12,7 +12,7 @@
     <select name="stock_id" id="stock_id" class="form-select" required>
       {% for stock in stocks %}
         <option value="{{ stock.stock_id }}"
-          {% if selected_stock_id is defined and selected_stock_id == stock.stock_id %}selected{% endif %}>
+          {% if (selected_stock_id|default(None)) == stock.stock_id %}selected{% endif %}>
           {{ stock.name }} ({{ stock.ticker }})
           {% if stock.current_price is not none %} – {{ "%.2f"|format(stock.current_price) }} kr{% endif %}
         </option>
@@ -23,13 +23,16 @@
   <div class="mb-3">
     <label for="quantity" class="form-label">Antal</label>
     <input type="number" id="quantity" name="quantity" class="form-control"
-           min="1" value="{{ selected_quantity or 1 }}" required>
+           min="1" value="{{ selected_quantity|default(1, true) }}" required>
   </div>
 
-  {% if selected_price is defined and selected_price %}
-    <div class="mb-3 text-muted">Senest hentede kurs: {{ "%.2f"|format(selected_price) }} kr</div>
+  {% if selected_price|default(None) %}
+    <div class="mb-3 text-muted">
+      Senest hentede kurs: {{ "%.2f"|format(selected_price) }} kr
+    </div>
   {% endif %}
 
   <button type="submit" class="btn btn-primary">Køb</button>
 </form>
 {% endblock %}
+
