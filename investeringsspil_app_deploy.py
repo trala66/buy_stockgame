@@ -269,24 +269,6 @@ def login():
     return render_template("login.html")
 
 
-'''
-@app.route("/", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        userid = request.form.get("userid")
-        pin = request.form.get("pin")
-        with get_db_connection() as conn, conn.cursor() as cur:
-            cur.execute("SELECT user_id, password_hash FROM users WHERE user_id = %s", (userid,))
-            row = cur.fetchone()
-            if row and check_password_hash(row["password_hash"], pin):
-                session.permanent = True
-                session["user_id"] = int(row["user_id"])
-                return redirect(url_for("dashboard"))
-        flash("Login mislykkedes. Tjek ID og PIN.", "danger")
-    return render_template("login.html")
-'''
-    
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -446,6 +428,32 @@ def buy():
 # ──────────────────────────────────────────────────────────────────────────────
 # Leaderboard/overview
 # ──────────────────────────────────────────────────────────────────────────────
+
+@app.route("/overview")
+def overview():
+    updated, snaps, skipped = update_stock_prices_all()
+    if skipped:
+        flash("Kurser blev ikke hentet (opdateret for nylig – max hver 15. minut).", "info")
+
+    with get_db_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT u.user_id, u.name,
+                   u.cash_balance,
+                   COALESCE(SUM(h.quantity * s.current_price), 0) AS stocks_value,
+                   u.cash_balance + COALESCE(SUM(h.quantity * s.current_price), 0) AS total
+            FROM users u
+            LEFT JOIN holdings h ON h.user_id = u.user_id
+            LEFT JOIN stocks s   ON s.stock_id = h.stock_id
+            GROUP BY u.user_id, u.name, u.cash_balance
+            ORDER BY total DESC
+            """
+        )
+        users = cur.fetchall()
+    return render_template("overview.html", users=users)
+
+
+'''
 @app.route("/overview")
 def overview():
     # Lad prod/hosting styre om vi auto-opdaterer priser (kan være langsomt)
@@ -467,7 +475,7 @@ def overview():
         )
         users = cur.fetchall()
     return render_template("overview.html", users=users)
-
+'''
 # ──────────────────────────────────────────────────────────────────────────────
 # Manuel opdatering (knap)
 # ──────────────────────────────────────────────────────────────────────────────
