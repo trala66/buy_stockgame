@@ -6,8 +6,10 @@
 
 import os
 import time
+import re
 from decimal import Decimal
 from datetime import timedelta, datetime, timezone
+from time import sleep
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session, flash, jsonify
@@ -17,6 +19,7 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import OperationalError
 import yfinance as yf
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Flask app
@@ -116,22 +119,8 @@ def ensure_stock_price(stock_id: int):
             conn.commit()
         return price
 
-'''
-def update_stock_prices_all():
-    """Opdatér alle aktiers current_price."""
-    with get_db_connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT stock_id, ticker FROM stocks")
-        rows = cur.fetchall()
-        for r in rows:
-            price = fetch_price_from_api(r["ticker"])
-            if price is not None:
-                cur.execute("UPDATE stocks SET current_price = %s WHERE stock_id = %s", (price, r["stock_id"]))
-        conn.commit()
-'''
 
-import os
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
+
 
 MIN_REFRESH_MINUTES = int(os.getenv("MIN_PRICE_REFRESH_MINUTES", "15"))
 
@@ -235,6 +224,52 @@ def update_stock_prices_all(source: str = "yfinance", snapshot: bool = True):
 # ──────────────────────────────────────────────────────────────────────────────
 # auth
 # ──────────────────────────────────────────────────────────────────────────────
+
+
+@app.route("/", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        userid_raw = (request.form.get("userid") or "").strip()
+        pin_raw    = (request.form.get("pin") or "").strip()
+
+        # Server-side validation (never rely only on HTML)
+        if not re.fullmatch(r"\d+", userid_raw):
+            flash("Bruger-ID skal være et tal.", "warning")
+            return render_template("login.html", userid=userid_raw)
+
+        if not re.fullmatch(r"\d{4}", pin_raw):
+            flash("PIN skal bestå af 4 cifre.", "warning")
+            return render_template("login.html", userid=userid_raw)
+
+        userid = int(userid_raw)
+        pin = pin_raw
+
+        try:
+            with get_db_connection() as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT user_id, password_hash FROM users WHERE user_id = %s",
+                    (userid,),
+                )
+                row = cur.fetchone()
+        except Exception:
+            app.logger.exception("Login DB error")
+            flash("Teknisk fejl. Prøv igen om lidt.", "danger")
+            return render_template("login.html", userid=userid_raw)
+
+        if row and check_password_hash(row["password_hash"], pin):
+            session.permanent = True
+            session["user_id"] = int(row["user_id"])
+            return redirect(url_for("dashboard"))
+
+        # tiny delay to make brute-forcing slightly harder (optional)
+        sleep(0.3)
+        flash("Login mislykkedes. Tjek ID og PIN.", "danger")
+        return render_template("login.html", userid=userid_raw)
+
+    return render_template("login.html")
+
+
+'''
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -249,6 +284,8 @@ def login():
                 return redirect(url_for("dashboard"))
         flash("Login mislykkedes. Tjek ID og PIN.", "danger")
     return render_template("login.html")
+'''
+    
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
