@@ -116,6 +116,7 @@ def ensure_stock_price(stock_id: int):
             conn.commit()
         return price
 
+'''
 def update_stock_prices_all():
     """Opdatér alle aktiers current_price."""
     with get_db_connection() as conn, conn.cursor() as cur:
@@ -126,6 +127,110 @@ def update_stock_prices_all():
             if price is not None:
                 cur.execute("UPDATE stocks SET current_price = %s WHERE stock_id = %s", (price, r["stock_id"]))
         conn.commit()
+'''
+
+import os
+from datetime import datetime, timezone, timedelta
+from decimal import Decimal
+
+MIN_REFRESH_MINUTES = int(os.getenv("MIN_PRICE_REFRESH_MINUTES", "15"))
+
+def update_stock_prices_all(source: str = "yfinance", snapshot: bool = True):
+    """
+    Opdatér alle aktiers current_price – men max hver MIN_REFRESH_MINUTES.
+    - Globalt tidsstempel i price_refresh_control afgør om vi må kalde yfinance.
+    - Tidsstempel sættes til OPDATERINGENS STARTTID (window-start), så gentagne
+      klik ikke skubber intervallet.
+    - Snapshot indsættes kun hvis prisen ændres.
+    Returnerer (updated_count, snapshotted_count, skipped) hvor 'skipped' = True,
+    hvis vi sprang opdatering over pga. rate-limit.
+    """
+    min_interval = timedelta(minutes=MIN_REFRESH_MINUTES)
+    updated = 0
+    snapshotted = 0
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            # Sørg for at kontrolrækken findes og lås den
+            cur.execute("""
+                INSERT INTO price_refresh_control (id, last_refreshed_at)
+                VALUES (TRUE, NULL)
+                ON CONFLICT (id) DO NOTHING
+            """)
+            cur.execute("""
+                SELECT last_refreshed_at
+                FROM price_refresh_control
+                WHERE id = TRUE
+                FOR UPDATE
+            """)
+            row = cur.fetchone()
+            last = row["last_refreshed_at"] if row else None
+
+            now = datetime.now(timezone.utc)
+
+            # Rate-limit check
+            if last is not None and (now - last) < min_interval:
+                # Spring helt over – brug eksisterende priser
+                print(f"[update_stock_prices_all] skipped; last={last.isoformat()} < {MIN_REFRESH_MINUTES}min")
+                # Ingen commit nødvendig; vi har kun læst/låst
+                return (0, 0, True)
+
+            # Vi må opdatere – fastfrys "window start" nu,
+            # og brug det som last_refreshed_at EFTER en vellykket kørsel
+            window_start = now
+
+            # Hent tickers + nuværende pris
+            cur.execute("SELECT stock_id, ticker, current_price FROM stocks")
+            rows = cur.fetchall()
+
+            for r in rows:
+                sid = r["stock_id"]
+                ticker = r["ticker"]
+                old_price = r["current_price"]
+
+                # Prøv at hente ny pris
+                new_price = fetch_price_from_api(ticker)
+                if new_price is None:
+                    continue
+
+                prices_differ = (old_price is None) or (Decimal(str(old_price)) != new_price)
+                if prices_differ:
+                    # Hvis du IKKE bruger triggeren der sætter price_updated_at:
+                    # cur.execute(
+                    #   "UPDATE stocks SET current_price = %s, price_updated_at = NOW() WHERE stock_id = %s",
+                    #   (new_price, sid)
+                    # )
+                    cur.execute(
+                        "UPDATE stocks SET current_price = %s WHERE stock_id = %s",
+                        (new_price, sid)
+                    )
+                    updated += 1
+
+                    if snapshot:
+                        # Hvis du har tabellen stock_price_snapshots:
+                        # id | stock_id | price | source | captured_at
+                        cur.execute(
+                            """
+                            INSERT INTO stock_price_snapshots (stock_id, price, source)
+                            VALUES (%s, %s, %s)
+                            """,
+                            (sid, new_price, source)
+                        )
+                        snapshotted += 1
+
+            # Sæt globalt stempel til STARTTID (ikke slut) – for at undgå "drift"
+            cur.execute("""
+                UPDATE price_refresh_control
+                SET last_refreshed_at = %s
+                WHERE id = TRUE
+            """, (window_start,))
+
+            conn.commit()
+
+    print(f"[update_stock_prices_all] updated={updated}, snapshots={snapshotted}, window_start={window_start.isoformat()}")
+    return (updated, snapshotted, False)
+
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # auth
